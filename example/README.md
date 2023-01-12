@@ -1,6 +1,6 @@
-# flutter_ar_image_tracking_f2n_example
+# realworld_ar_example
 
-Demonstrates how to use the flutter_ar_image_tracking_f2n plugin.
+Demonstrates how to use the realworld_ar plugin.
 
 ## Getting Started
 

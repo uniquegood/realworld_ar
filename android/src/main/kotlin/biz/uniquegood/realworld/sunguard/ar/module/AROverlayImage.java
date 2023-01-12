@@ -1,4 +1,4 @@
-package io.lowapple.flutter.plugin.ar_image_tracking.flutter_ar_image_tracking_f2n;
+package biz.uniquegood.realworld.sunguard.ar.module;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -29,6 +29,7 @@ import com.google.ar.sceneform.rendering.ViewRenderable;
 
 import java.util.concurrent.CompletableFuture;
 
+import biz.uniquegood.realworld.sunguard.ar.R;
 
 public class AROverlayImage extends AnchorNode {
     private static final String TAG = AROverlayImage.class.getSimpleName();

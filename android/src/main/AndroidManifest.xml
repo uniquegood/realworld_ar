@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="io.lowapple.flutter.plugin.ar_image_tracking.flutter_ar_image_tracking_f2n">
+    package="biz.uniquegood.realworld.sunguard.ar">
 
     <uses-feature
         android:glEsVersion="0x00030000"

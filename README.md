@@ -1,6 +1,6 @@
-# flutter_ar_image_tracking_f2n
+# realworld_ar
 
-A new Flutter project.
+A new Flutter plugin project.
 
 ## Getting Started
 
@@ -13,3 +13,6 @@ For help getting started with Flutter development, view the
 [online documentation](https://flutter.dev/docs), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+The plugin project was generated without specifying the `--platforms` flag, no platforms are currently supported.
+To add platforms, run `flutter create -t plugin --platforms <platforms> .` in this directory.
+You can also find a detailed instruction on how to add platforms in the `pubspec.yaml` at https://flutter.dev/docs/development/packages-and-plugins/developing-packages#plugin-platforms.
