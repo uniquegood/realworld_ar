@@ -13,8 +13,7 @@ abstract class FlutterArImageTrackingF2nPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static FlutterArImageTrackingF2nPlatform _instance =
-      MethodChannelFlutterArImageTrackingF2n();
+  static FlutterArImageTrackingF2nPlatform _instance = MethodChannelFlutterArImageTrackingF2n();
   static FlutterArImageTrackingF2nPlatform get instance => _instance;
   static set instance(FlutterArImageTrackingF2nPlatform instance) {
     PlatformInterface.verifyToken(instance, _token);
