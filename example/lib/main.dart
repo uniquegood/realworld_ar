@@ -13,7 +13,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final _realWorldAr = RealworldAr();
+  final _realWorldAr = RealWorldAr();
 
   @override
   void initState() {

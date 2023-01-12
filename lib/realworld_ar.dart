@@ -7,8 +7,8 @@
 
 import 'realworld_ar_platform_interface.dart';
 
-class RealworldAr {
+class RealWorldAr {
   Future<void> show() async {
-    await RealworldArPlatform.instance.show();
+    await RealWorldArPlatform.instance.show();
   }
 }

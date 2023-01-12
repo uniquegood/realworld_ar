@@ -29,9 +29,14 @@ class RealWorldArPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (call.method == "show") {
-            context.startActivity(Intent(context, ARTrackingActivity::class.java).apply {
-                addFlags(FLAG_ACTIVITY_NEW_TASK)
-            })
+            context.startActivity(
+                Intent(context, ARTrackingActivity::class.java).apply {
+                    addFlags(FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            result.success(true)
+        } else {
+            result.success(false)
         }
     }
 
