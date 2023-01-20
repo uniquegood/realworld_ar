@@ -9,6 +9,29 @@ public class SwiftRealworldArPlugin: NSObject, FlutterPlugin {
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    result("iOS " + UIDevice.current.systemVersion)
+//    result("iOS " + UIDevice.current.systemVersion)
+      
+      switch call.method {
+      case "recognition":
+          print("call method recognition")
+          if let argument = call.arguments as? [String: Any] {
+              if let augmentedImage: String = argument["augmentedImage"] as? String, let overlayImage: String = argument["overlayImage"] as? String {
+                  let buttonLabel: String? = argument["buttonLabel"] as? String
+                  let guideImage: String? = argument["guideImage"]as? String
+                  let augmentedImageWidth: Double? = argument["augmentedImageWidth"]as? Double
+                  
+                  if let rootVC = UIApplication.shared.windows.first?.rootViewController as? FlutterViewController {
+                      let ARView = QuestARImageRecognitionViewController(buttonLabel: buttonLabel, guideImageString: guideImage, augmentedImageString: augmentedImage, augmentedImageWidth: augmentedImageWidth, overlayImageString: overlayImage)
+                      rootVC.present(ARView, animated: true)
+                  }
+              } else {
+                  result(false)
+              }
+          }
+          break
+      default:
+          result(false)
+          break
+      }
   }
 }
