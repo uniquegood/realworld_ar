@@ -8,7 +8,19 @@
 import 'realworld_ar_platform_interface.dart';
 
 class RealWorldAr {
-  Future<void> show() async {
-    await RealWorldArPlatform.instance.show();
+  Future<bool> recognition({
+    required String? buttonLabel,
+    required String? guideImage,
+    required String augmentedImage,
+    required double? augmentedImageWidth,
+    required String overlayImage,
+  }) async {
+    return await RealWorldArPlatform.instance.recognition(
+      buttonLabel: buttonLabel,
+      guideImage: guideImage,
+      augmentedImage: augmentedImage,
+      augmentedImageWidth: augmentedImageWidth ?? 0.0,
+      overlayImage: overlayImage,
+    );
   }
 }

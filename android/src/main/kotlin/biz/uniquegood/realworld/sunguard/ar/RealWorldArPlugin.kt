@@ -1,10 +1,7 @@
 package biz.uniquegood.realworld.sunguard.ar
 
 import android.content.Context
-import android.content.Intent
-import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 import biz.uniquegood.realworld.sunguard.ar.module.ARTrackingActivity
-
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -20,6 +17,10 @@ class RealWorldArPlugin : FlutterPlugin, MethodCallHandler {
 
     private lateinit var context: Context
 
+    companion object {
+        var lastResult: MethodChannel.Result? = null
+    }
+
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         context = flutterPluginBinding.applicationContext
 
@@ -28,15 +29,27 @@ class RealWorldArPlugin : FlutterPlugin, MethodCallHandler {
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method == "show") {
-            context.startActivity(
-                Intent(context, ARTrackingActivity::class.java).apply {
-                    addFlags(FLAG_ACTIVITY_NEW_TASK)
-                },
+        if (call.method == "recognition") {
+            lastResult = result
+
+            val arguments = call.arguments as Map<*, *>
+            val augmentedImage = arguments["augmentedImage"].toString()
+            val augmentedImageWidth = arguments.getOrDefault("augmentedImageWidth", 0.0) as Double
+            val overlayImage = arguments["overlayImage"].toString()
+            val guideImage = arguments["guideImage"]?.toString()
+            val buttonLabel = arguments["buttonLabel"]?.toString() ?: ""
+
+            ARTrackingActivity.startActivity(
+                context = context,
+                buttonLabel = buttonLabel,
+                guideImage = guideImage,
+                augmentedImage = augmentedImage,
+                augmentedImageWidth = augmentedImageWidth,
+                overlayImage = overlayImage
             )
-            result.success(true)
         } else {
-            result.success(false)
+            lastResult?.success(false)
+            lastResult = null
         }
     }
 

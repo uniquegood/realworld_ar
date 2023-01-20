@@ -1,30 +1,73 @@
 package biz.uniquegood.realworld.sunguard.ar.module
 
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.util.Log
 import android.util.Pair
+import android.view.View
+import android.widget.Button
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import app.redwarp.gif.decoder.Gif
+import app.redwarp.gif.decoder.Parser
 import biz.uniquegood.realworld.sunguard.ar.R
+import biz.uniquegood.realworld.sunguard.ar.RealWorldArPlugin
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.CameraPermissionHelper
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.DisplayRotationHelper
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.TrackingStateHelper
-import biz.uniquegood.realworld.sunguard.ar.common.rendering.BackgroundRenderer
 import biz.uniquegood.realworld.sunguard.ar.common.rendering.ImageRenderer
+import biz.uniquegood.realworld.sunguard.ar.common.rendering.BackgroundRenderer
+import com.bumptech.glide.Glide
+import com.google.android.material.snackbar.Snackbar
 import com.google.ar.core.*
 import com.google.ar.core.ArCoreApk.InstallStatus
 import com.google.ar.core.exceptions.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.net.URL
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
-
 
 class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
     companion object {
         val TAG: String = ARTrackingActivity::class.java.simpleName
+        const val AR_GUIDE: String = "guideImage"
+        const val AR_AUGMENTED_IMAGE: String = "augmentedImage"
+        const val AR_AUGMENTED_IMAGE_WIDTH: String = "augmentedImageWidth"
+        const val AR_OVERLAY: String = "overlayImage"
+        const val AR_BUTTON_LABEL: String = "buttonLabel"
+
+        fun startActivity(
+            context: Context,
+            buttonLabel: String,
+            guideImage: String?,
+            augmentedImage: String,
+            augmentedImageWidth: Double,
+            overlayImage: String
+        ) {
+            context.startActivity(
+                Intent(context, ARTrackingActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    putExtra(AR_GUIDE, guideImage)
+                    putExtra(AR_AUGMENTED_IMAGE, augmentedImage)
+                    putExtra(AR_AUGMENTED_IMAGE_WIDTH, augmentedImageWidth)
+                    putExtra(AR_OVERLAY, overlayImage)
+                    putExtra(AR_BUTTON_LABEL, buttonLabel)
+                },
+            )
+        }
     }
 
     private lateinit var surfaceView: GLSurfaceView
@@ -39,14 +82,52 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
     private val backgroundRenderer: BackgroundRenderer = BackgroundRenderer()
 
     private val augmentedImageMap: HashMap<Int, Pair<AugmentedImage, Anchor>> = HashMap()
-    private val augmentedImageRenderer: AugmentedImageRenderer = AugmentedImageRenderer()
-    private val arImage =
-        ImageRenderer()
+    private val trackingOverlay = ARTrackingOverlay()
+
+    // 외부 이미지
+    private lateinit var augmentedImageUrl: String
+    private var augmentedImageWidth: Double = 0.0
+    private lateinit var overlayImageUrl: String
+
+    // 가이드 이미지
+    private var guideImage: String = ""
+    private lateinit var guideImageView: ImageView
+
+    //
+    private lateinit var buttonTracked: Button
+
+    //
+    private lateinit var buttonBack: Button
+
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.no_change, R.anim.slide_down_out_easing)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.ar_tracking_activity)
+        supportActionBar?.hide()
+        supportActionBar?.setBackgroundDrawable(
+            ColorDrawable(
+                ContextCompat.getColor(
+                    this, android.R.color.white
+                )
+            )
+        )
+        var flags: Int = window.decorView.systemUiVisibility // get current flag
+        flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR // add LIGHT_STATUS_BAR to flag
+        window.decorView.systemUiVisibility = flags
+        window.statusBarColor = Color.WHITE // optional
+
+        augmentedImageUrl = intent.getStringExtra(AR_AUGMENTED_IMAGE) ?: ""
+        augmentedImageWidth = intent.getDoubleExtra(AR_AUGMENTED_IMAGE_WIDTH, 0.0)
+        overlayImageUrl = intent.getStringExtra(AR_OVERLAY) ?: ""
+
+
+        window.statusBarColor = Color.WHITE
         surfaceView = findViewById(R.id.surface_view)
         // Set up renderer.
         surfaceView.preserveEGLContextOnPause = true
@@ -55,10 +136,46 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         surfaceView.setRenderer(this)
         surfaceView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         surfaceView.setWillNotDraw(false)
+        surfaceView.onPause()
+
+        buttonBack = findViewById(R.id.button_finish)
+        buttonBack.setOnClickListener {
+            RealWorldArPlugin.lastResult?.success(false)
+            setResult(Activity.RESULT_CANCELED)
+            finish()
+        }
+
+        buttonTracked = findViewById(R.id.button_tracked)
+        buttonTracked.text = intent.getStringExtra(AR_BUTTON_LABEL) ?: ""
+        buttonTracked.isEnabled = false
+        buttonTracked.setOnClickListener {
+            RealWorldArPlugin.lastResult?.success(true)
+            setResult(Activity.RESULT_OK)
+            finish()
+        }
+
+        // 가이드 이미지
+        guideImage = intent.getStringExtra(AR_GUIDE) ?: ""
+        guideImageView = findViewById(R.id.image_view_guide)
+        if (guideImage.isEmpty()) {
+            guideImageView.visibility = View.GONE
+        } else {
+            Glide.with(this).load(guideImage).into(guideImageView)
+        }
+
+        // 외부 이미지 다운로드
+
+    }
+
+    override fun onBackPressed() {
+        RealWorldArPlugin.lastResult?.success(false)
+        setResult(Activity.RESULT_CANCELED)
+        super.onBackPressed()
     }
 
     override fun onResume() {
         super.onResume()
+        overridePendingTransition(R.anim.slide_up_in_easing, R.anim.slide_down_out_easing)
 
         if (session == null) {
             var exception: Exception? = null
@@ -78,7 +195,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                     CameraPermissionHelper.requestCameraPermission(this)
                     return
                 }
-                session = Session( /* context = */this)
+                session = Session(/* context = */ this)
             } catch (e: UnavailableArcoreNotInstalledException) {
                 message = "Please install ARCore"
                 exception = e
@@ -96,16 +213,16 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                 exception = e
             }
             if (message != null) {
-                Log.e(
-                    TAG, "Exception creating session", exception
-                )
+                Log.e(TAG, "Exception creating session", exception)
                 return
             }
             shouldConfigureSession = true
         }
 
         if (shouldConfigureSession) {
-            configureSession()
+            CoroutineScope(Dispatchers.Main).launch {
+                configureSession()
+            }
             shouldConfigureSession = false
         }
         // Note that order matters - see the note in onPause(), the reverse applies here.
@@ -115,7 +232,13 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             session = null
             return
         }
-        surfaceView.onResume()
+
+        // 이미지 다운로드 이후 화면 그리기 시작
+        trackingOverlay.init(overlayImageUrl) {
+            surfaceView.onResume()
+        }
+
+        // surfaceView.onResume()
         displayRotationHelper.onResume()
     }
 
@@ -136,10 +259,12 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         super.onDestroy()
     }
 
-    private fun configureSession() {
+    private suspend fun configureSession() {
         val config = Config(session)
         config.focusMode = Config.FocusMode.AUTO
-        if (!setupAugmentedImageDatabase(config)) {
+        config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
+        withContext(Dispatchers.IO) {
+            setupAugmentedImageDatabase(config)
         }
         session!!.configure(config)
     }
@@ -148,11 +273,11 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
         try {
             // Create the texture and pass it to ARCore session to be filled during update().
-            backgroundRenderer.createOnGlThread( /*context=*/this)
-            arImage.createOnGlThread(this, assets.open("models/overlay.png"))
-            augmentedImageRenderer.createOnGlThread(this)
+            backgroundRenderer.createOnGlThread(/*context=*/ this)
+            //
+            trackingOverlay.createOnGlThread(this)
         } catch (e: IOException) {
-            Log.e(TAG, "Failed to read an asset file", e);
+            Log.e(TAG, "Failed to read an asset file", e)
         }
     }
 
@@ -164,7 +289,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
         if (session == null) {
-            return;
+            return
         }
         // Notify ARCore session that the view size changed so that the perspective matrix and
         // the video background can be properly adjusted.
@@ -177,7 +302,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             val frame = session!!.update()
             val camera = frame.camera
 
-            trackingStateHelper.updateKeepScreenOnFlag(camera.trackingState)
+            // trackingStateHelper.updateKeepScreenOnFlag(camera.trackingState)
 
             // If frame is ready, render camera preview image to the GL surface
             backgroundRenderer.draw(frame)
@@ -194,10 +319,9 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
 
             drawAugmentedImages(camera, frame, proj, view, colorCorrectionRgba)
         } catch (t: Throwable) {
-            Log.e(TAG, "Exception on OpenGL thread", t);
+            Log.e(TAG, "Exception on OpenGL thread", t)
         }
     }
-
 
     private fun drawAugmentedImages(
         camera: Camera,
@@ -206,23 +330,15 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         view: FloatArray,
         colorCorrectionRgba: FloatArray
     ) {
-        val updatedAugmentedImages = frame.getUpdatedTrackables(
-            AugmentedImage::class.java
-        )
+        val updatedAugmentedImages = frame.getUpdatedTrackables(AugmentedImage::class.java)
 
         // Iterate to update augmentedImageMap, remove elements we cannot draw.
         for (augmentedImage in updatedAugmentedImages) {
             when (augmentedImage.trackingState) {
                 TrackingState.PAUSED -> {
-                    // When an image is in PAUSED state, but the camera is not PAUSED, it has been detected,
-                    // but not yet tracked.
-                    val text = String.format("Detected Image %d", augmentedImage.index)
+
                 }
                 TrackingState.TRACKING -> {
-                    // Have to switch to UI Thread to update View.
-                    // runOnUiThread { fitToScanView.setVisibility(View.GONE) }
-
-                    // Create a new anchor for newly found images.
                     if (!augmentedImageMap.containsKey(augmentedImage.index)) {
                         val centerPoseAnchor =
                             augmentedImage.createAnchor(augmentedImage.centerPose)
@@ -230,7 +346,8 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                             Pair.create(augmentedImage, centerPoseAnchor)
                     }
                 }
-                TrackingState.STOPPED -> augmentedImageMap.remove(augmentedImage.index)
+                TrackingState.STOPPED -> {
+                }
                 else -> {}
             }
         }
@@ -238,53 +355,70 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         // Draw all images in augmentedImageMap
         for (pair in augmentedImageMap.values) {
             val augmentedImage = pair.first
-            val centerAnchor = augmentedImageMap[augmentedImage.index]!!.second
+            // val centerAnchor = augmentedImageMap[augmentedImage.index]!!.second
             when (augmentedImage.trackingState) {
                 TrackingState.TRACKING -> {
                     val transition = FloatArray(16)
                     augmentedImage.centerPose.compose(Pose.makeTranslation(0.0F, 0.0f, 0.0f))
                         .toMatrix(transition, 0)
-                    arImage.updateModelMatrix(
-                        transition,
-                        augmentedImage.extentX,
-                        augmentedImage.extentZ
+                    trackingOverlay.updateModelMatrix(
+                        transition, augmentedImage.extentX, augmentedImage.extentZ
                     )
-                    arImage.draw(view, proj)
+                    trackingOverlay.draw(view, proj)
+
+                    runOnUiThread {
+                        buttonTracked.isEnabled = true
+                        buttonTracked.setTextColor(Color.parseColor("#ffffff"))
+                        guideImageView.visibility = View.GONE
+                    }
                 }
-                else -> {}
+                TrackingState.STOPPED -> {
+                    buttonTracked.isEnabled = false
+                }
+                else -> {
+
+                }
             }
         }
     }
 
-    private fun setupAugmentedImageDatabase(config: Config): Boolean {
+    private suspend fun setupAugmentedImageDatabase(config: Config) {
         // There are two ways to configure an AugmentedImageDatabase:
         // 1. Add Bitmap to DB directly
         // 2. Load a pre-built AugmentedImageDatabase
         // Option 2) has
         // * shorter setup time
         // * doesn't require images to be packaged in apk.
-        val augmentedImageBitmap = loadAugmentedImageBitmap() ?: return false
+//        val augmentedImageBitmap = loadAugmentedImageBitmap() ?: return false
+
         val augmentedImageDatabase = AugmentedImageDatabase(session)
-        augmentedImageDatabase.addImage("image_name", augmentedImageBitmap)
+        val augmentedImage = withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
+                URL(augmentedImageUrl).openConnection()
+            }.getInputStream()
+        }
+        val bitmap = BitmapFactory.decodeStream(augmentedImage)
+        augmentedImageDatabase.addImage("image_name", bitmap)
+        withContext(Dispatchers.IO) {
+            augmentedImage.close()
+        }
+        bitmap.recycle()
+
+        config.augmentedImageDatabase = augmentedImageDatabase
+
         // If the physical size of the image is known, you can instead use:
         //     augmentedImageDatabase.addImage("image_name", augmentedImageBitmap, widthInMeters);
         // This will improve the initial detection speed. ARCore will still actively estimate the
         // physical size of the image as it is viewed from multiple viewpoints.
-        config.augmentedImageDatabase = augmentedImageDatabase
-        return true
     }
 
     private fun loadAugmentedImageBitmap(): Bitmap? {
         try {
             assets.open("models/target.jpg").use { `is` ->
-                return BitmapFactory.decodeStream(
-                    `is`
-                )
+                return BitmapFactory.decodeStream(`is`)
             }
         } catch (e: IOException) {
-            Log.e(
-                TAG, "IO exception loading augmented image bitmap.", e
-            )
+            Log.e(TAG, "IO exception loading augmented image bitmap.", e)
         }
         return null
     }

@@ -23,7 +23,13 @@ abstract class RealWorldArPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> show() {
+  Future<bool> recognition({
+    required String? buttonLabel,
+    required String? guideImage,
+    required String augmentedImage,
+    required double? augmentedImageWidth,
+    required String overlayImage,
+  }) {
     throw UnimplementedError('show() has not been implemented.');
   }
 }

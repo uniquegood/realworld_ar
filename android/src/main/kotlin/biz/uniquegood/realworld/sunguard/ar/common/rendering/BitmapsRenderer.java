@@ -23,18 +23,17 @@ import android.opengl.Matrix;
 import android.util.DisplayMetrics;
 import android.util.Log;
 
-import com.bumptech.glide.gifdecoder.GifDecoder;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-public class ImageRenderer {
-    private static final String TAG = "ImageRenderer";
+public class BitmapsRenderer {
+    private static final String TAG = "BitmapsRenderer";
 
     private final int[] textures = new int[1];
+//    int[] textures;
 
     /**
      * (-1, 1) ------- (1, 1)
@@ -77,9 +76,6 @@ public class ImageRenderer {
     private final float[] modelViewMatrix = new float[16];
     private final float[] modelViewProjectionMatrix = new float[16];
 
-    float bitmapW;
-    float bitmapH;
-
     DisplayMetrics displayMetrics;
 
     public void createOnGlThread(Context context, InputStream stream) {
@@ -109,9 +105,7 @@ public class ImageRenderer {
     }
 
     public void createOnGlThread(Context context, Bitmap bitmap) throws IOException {
-
-        bitmapW = bitmap.getWidth();
-        bitmapH = bitmap.getHeight();
+        final Bitmap tmpBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false);
         displayMetrics = context.getResources().getDisplayMetrics();
 
         // GLES20.GL_TEXTURE0 에 새로운 텍스쳐 생성
@@ -124,9 +118,9 @@ public class ImageRenderer {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
         // 텍스쳐 바인딩
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, tmpBitmap, 0);
         // 비트맵 제거
-        bitmap.recycle();
+        tmpBitmap.recycle();
         ShaderUtil.checkGLError(TAG, "Texture loading");
 
         // Build the geometry of a simple quad.

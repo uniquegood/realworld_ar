@@ -14,8 +14,7 @@ import com.bumptech.glide.request.transition.Transition
 fun String.downloadAndBitmap(context: Context, load: (Bitmap) -> Unit) {
     Glide.with(context).asBitmap().load(this)
         .apply(RequestOptions().format(DecodeFormat.PREFER_ARGB_8888))
-        .encodeFormat(Bitmap.CompressFormat.PNG)
-        .into(object : CustomTarget<Bitmap?>() {
+        .encodeFormat(Bitmap.CompressFormat.PNG).into(object : CustomTarget<Bitmap?>() {
             override fun onLoadCleared(placeholder: Drawable?) {}
 
             override fun onResourceReady(
@@ -32,8 +31,7 @@ fun String.downloadAndGif(context: Context, load: (Bitmap) -> Unit) {
         .into(object : ImageViewTarget<GifDrawable>(null) {
             override fun setResource(resource: GifDrawable?) {
 
-                if(resource == null)
-                    return;
+                if (resource == null) return
                 resource.apply {
                     this.buffer
                 }

@@ -10,7 +10,20 @@ class MethodChannelRealworldAr extends RealWorldArPlatform {
   final methodChannel = const MethodChannel('realworld_ar');
 
   @override
-  Future<void> show() async {
-    await methodChannel.invokeMethod<void>('show');
+  Future<bool> recognition({
+    required String? buttonLabel,
+    required String? guideImage,
+    required String augmentedImage,
+    required double? augmentedImageWidth,
+    required String overlayImage,
+  }) async {
+    final res = await methodChannel.invokeMethod<bool>('recognition', {
+      'buttonLabel': buttonLabel,
+      'guideImage': guideImage,
+      'augmentedImage': augmentedImage,
+      'augmentedImageWidth': augmentedImageWidth,
+      'overlayImage': overlayImage,
+    });
+    return res ?? false;
   }
 }
