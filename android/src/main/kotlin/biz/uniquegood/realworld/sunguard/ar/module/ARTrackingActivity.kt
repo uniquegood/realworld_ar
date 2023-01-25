@@ -398,7 +398,11 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             }.getInputStream()
         }
         val bitmap = BitmapFactory.decodeStream(augmentedImage)
-        augmentedImageDatabase.addImage("image_name", bitmap)
+        if (augmentedImageWidth > 0.0) {
+            augmentedImageDatabase.addImage("image_name", bitmap)
+        } else {
+            augmentedImageDatabase.addImage("image_name", bitmap, augmentedImageWidth.toFloat())
+        }
         withContext(Dispatchers.IO) {
             augmentedImage.close()
         }
@@ -410,16 +414,5 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         //     augmentedImageDatabase.addImage("image_name", augmentedImageBitmap, widthInMeters);
         // This will improve the initial detection speed. ARCore will still actively estimate the
         // physical size of the image as it is viewed from multiple viewpoints.
-    }
-
-    private fun loadAugmentedImageBitmap(): Bitmap? {
-        try {
-            assets.open("models/target.jpg").use { `is` ->
-                return BitmapFactory.decodeStream(`is`)
-            }
-        } catch (e: IOException) {
-            Log.e(TAG, "IO exception loading augmented image bitmap.", e)
-        }
-        return null
     }
 }
