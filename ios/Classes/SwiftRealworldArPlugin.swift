@@ -21,7 +21,9 @@ public class SwiftRealworldArPlugin: NSObject, FlutterPlugin {
                   let augmentedImageWidth: Double? = argument["augmentedImageWidth"]as? Double
                   
                   if let rootVC = UIApplication.shared.windows.first?.rootViewController as? FlutterViewController {
-                      let ARView = QuestARImageRecognitionViewController(buttonLabel: buttonLabel, guideImageString: guideImage, augmentedImageString: augmentedImage, augmentedImageWidth: augmentedImageWidth, overlayImageString: overlayImage)
+                      let ARView = QuestARImageRecognitionViewController(buttonLabel: buttonLabel, guideImageString: guideImage, augmentedImageString: augmentedImage, augmentedImageWidth: augmentedImageWidth, overlayImageString: overlayImage) { actionResult in
+                          result(actionResult)
+                      }
                       rootVC.present(ARView, animated: true)
                   }
               } else {

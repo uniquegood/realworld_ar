@@ -43,6 +43,7 @@ class QuestARImageRecognitionViewController: UIViewController{
     private var timerCount = 0
     private var timer: Timer?
     
+    var completeHandler: (Bool) -> Void
     var buttonLabel: String?
     var guideImageString: String?
     var augmentedImageString: String
@@ -54,12 +55,13 @@ class QuestARImageRecognitionViewController: UIViewController{
         fatalError()
     }
     
-    init(buttonLabel: String?, guideImageString: String?, augmentedImageString: String, augmentedImageWidth: Double?, overlayImageString: String) {
+    init(buttonLabel: String?, guideImageString: String?, augmentedImageString: String, augmentedImageWidth: Double?, overlayImageString: String, completeHandler: @escaping ((Bool) -> Void)) {
         self.buttonLabel = buttonLabel
         self.guideImageString = guideImageString
         self.augmentedImageString = augmentedImageString
         self.augmentedImageWidth = augmentedImageWidth
         self.overlayImageString = overlayImageString
+        self.completeHandler = completeHandler
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -140,7 +142,7 @@ class QuestARImageRecognitionViewController: UIViewController{
         
         
         let doneButton = SolidButton()
-        doneButton.buttonColor = UIColor(argb: 0xC869FF)
+        doneButton.buttonColor = UIColor(rgb: 0xC869FF)
         doneButton.titleColor = .white
 //        doneButton.setFont(UIFont.notoFont(type: .medium, size: 16))
         doneButton.titleLabel?.textAlignment = .center
@@ -323,12 +325,15 @@ class QuestARImageRecognitionViewController: UIViewController{
     }
     
     @objc private func tapped(close button: UIButton) {
+        completeHandler(false)
         dismiss(animated: true, completion: nil)
     }
     
     @objc private func tapped(action button: UIButton) {
 //        guard let actionId = quest?.action?.id else { return }
+        completeHandler(true)
         actionButton.isEnabled = false
+        dismiss(animated: true)
 //        dismiss(animated: true) {
 //            self.actionButton.isEnabled = true
 //            let missionViewController = UIApplication.shared.keyWindow?.topViewController() as? MissionViewController
@@ -430,11 +435,11 @@ class QuestARImageRecognitionViewController: UIViewController{
             make.edges.equalToSuperview().inset(UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12))
         }
         
-        onboardingView = setOnboardingView()
-        self.view.addSubview(onboardingView)
-        onboardingView.snp.makeConstraints { (view) in
-            view.edges.equalToSuperview()
-        }
+//        onboardingView = setOnboardingView()
+//        self.view.addSubview(onboardingView)
+//        onboardingView.snp.makeConstraints { (view) in
+//            view.edges.equalToSuperview()
+//        }
     }
     private func createGIFAnimation(data: Data) -> CAKeyframeAnimation? {
         print(Date())
