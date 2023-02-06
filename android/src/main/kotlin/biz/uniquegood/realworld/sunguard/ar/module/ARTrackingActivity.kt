@@ -399,9 +399,9 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         }
         val bitmap = BitmapFactory.decodeStream(augmentedImage)
         if (augmentedImageWidth > 0.0) {
-            augmentedImageDatabase.addImage("image_name", bitmap)
-        } else {
             augmentedImageDatabase.addImage("image_name", bitmap, augmentedImageWidth.toFloat())
+        } else {
+            augmentedImageDatabase.addImage("image_name", bitmap)
         }
         withContext(Dispatchers.IO) {
             augmentedImage.close()
