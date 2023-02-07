@@ -254,7 +254,8 @@ class QuestARImageRecognitionViewController: UIViewController{
     private func debug_update() {
         
         var targetImageWidth: CGFloat = 0.1
-        if let targetImageWidthString = self.augmentedImageWidth {
+
+        if let targetImageWidthString = self.augmentedImageWidth, targetImageWidthString > 0.0 {
             targetImageWidth = CGFloat(targetImageWidthString)
         } else {
             targetImageWidth = 0.1
