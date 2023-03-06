@@ -1,7 +1,9 @@
 package biz.uniquegood.realworld.sunguard.ar.module
 
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Context
+import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -9,25 +11,23 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.util.Pair
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import app.redwarp.gif.decoder.Gif
-import app.redwarp.gif.decoder.Parser
 import biz.uniquegood.realworld.sunguard.ar.R
 import biz.uniquegood.realworld.sunguard.ar.RealWorldArPlugin
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.CameraPermissionHelper
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.DisplayRotationHelper
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.TrackingStateHelper
-import biz.uniquegood.realworld.sunguard.ar.common.rendering.ImageRenderer
 import biz.uniquegood.realworld.sunguard.ar.common.rendering.BackgroundRenderer
 import com.bumptech.glide.Glide
-import com.google.android.material.snackbar.Snackbar
 import com.google.ar.core.*
 import com.google.ar.core.ArCoreApk.InstallStatus
 import com.google.ar.core.exceptions.*
@@ -107,6 +107,15 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!checkDeviceARSupport()) {
+            AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
+                .setMessage(getString(R.string.label_device_does_not_support_ar)).setPositiveButton(
+                    android.R.string.yes
+                ) { _: DialogInterface?, _: Int ->
+                    finish()
+                }.show()
+            return
+        }
 
         setContentView(R.layout.ar_tracking_activity)
         supportActionBar?.hide()
@@ -167,6 +176,12 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
 
     }
 
+    private fun checkDeviceARSupport(): Boolean {
+        val openGlVersion =
+            (getSystemService(ACTIVITY_SERVICE) as ActivityManager).deviceConfigurationInfo.glEsVersion
+        return openGlVersion.toDouble() >= 3.0
+    }
+
     override fun onBackPressed() {
         RealWorldArPlugin.lastResult?.success(false)
         setResult(Activity.RESULT_CANCELED)
@@ -220,8 +235,19 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         }
 
         if (shouldConfigureSession) {
-            CoroutineScope(Dispatchers.Main).launch {
-                configureSession()
+            try {
+                CoroutineScope(Dispatchers.Main).launch {
+                    configureSession()
+                }
+            } catch (e: Exception) {
+                AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
+                    .setMessage(getString(R.string.label_insufficient_image_quality))
+                    .setPositiveButton(
+                        android.R.string.yes
+                    ) { _: DialogInterface?, _: Int ->
+                        finish()
+                    }.show()
+                return
             }
             shouldConfigureSession = false
         }
@@ -389,30 +415,49 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         // Option 2) has
         // * shorter setup time
         // * doesn't require images to be packaged in apk.
-//        val augmentedImageBitmap = loadAugmentedImageBitmap() ?: return false
-
         val augmentedImageDatabase = AugmentedImageDatabase(session)
-        val augmentedImage = withContext(Dispatchers.IO) {
-            withContext(Dispatchers.IO) {
-                URL(augmentedImageUrl).openConnection()
-            }.getInputStream()
+        val bitmap: Bitmap? = retry({ it is IOException }, 3, {
+            // ARGB_8888 is required by the image database.
+            val options = BitmapFactory.Options().apply {
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inPremultiplied = false
+            }
+            // Load in the bitmap
+            BitmapFactory.decodeStream(
+                URL(augmentedImageUrl).openConnection().getInputStream(), null, options
+            )
+        })
+        if (bitmap == null) {
+            AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
+                .setMessage(getString(R.string.label_insufficient_image_quality)).setPositiveButton(
+                    android.R.string.yes
+                ) { _: DialogInterface?, _: Int ->
+                    finish()
+                }.show()
+            return
         }
-        val bitmap = BitmapFactory.decodeStream(augmentedImage)
         if (augmentedImageWidth > 0.0) {
             augmentedImageDatabase.addImage("image_name", bitmap, augmentedImageWidth.toFloat())
         } else {
             augmentedImageDatabase.addImage("image_name", bitmap)
         }
-        withContext(Dispatchers.IO) {
-            augmentedImage.close()
-        }
         bitmap.recycle()
 
         config.augmentedImageDatabase = augmentedImageDatabase
-
-        // If the physical size of the image is known, you can instead use:
-        //     augmentedImageDatabase.addImage("image_name", augmentedImageBitmap, widthInMeters);
-        // This will improve the initial detection speed. ARCore will still actively estimate the
-        // physical size of the image as it is viewed from multiple viewpoints.
     }
+}
+
+inline fun <T> retry(
+    predicate: (cause: Throwable) -> Boolean = { true }, retries: Int = 1, call: () -> T
+): T? {
+    for (i in 0..retries) {
+        return try {
+            call()
+        } catch (e: Exception) {
+            if (predicate(e) && i < retries) {
+                continue
+            } else throw e
+        }
+    }
+    return null
 }
