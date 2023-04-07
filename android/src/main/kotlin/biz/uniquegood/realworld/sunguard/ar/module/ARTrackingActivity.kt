@@ -431,7 +431,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             )
         })
 
-        bool shouldInitializeConfig = true
+        var shouldInitializeConfig = true
         if (bitmap == null) {
             AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
                 .setMessage(getString(R.string.label_download_failure))
@@ -456,11 +456,10 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                 }.show()
             shouldInitializeConfig = false
         } finally {
-            bitmap.recycle()
+            bitmap?.recycle()
         }
+        return shouldInitializeConfig
     }
-
-    return shouldInitializeConfig
 }
 
 inline fun <T> retry(
