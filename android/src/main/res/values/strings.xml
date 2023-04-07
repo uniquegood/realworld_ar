@@ -2,6 +2,7 @@
     <string name="label_back">Back</string>
     <string name="alert_title">Alert</string>
     <string name="label_device_does_not_support_ar">Device does not support AR.</string>
-    <string name="label_insufficient_image_quality">Error during AR initialization.</string>
+    <string name="label_download_failure">The image download failed, please try again.</string>
+    <string name="label_insufficient_image_quality">AR is not available for this image</string>
 </resources>
 

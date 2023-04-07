@@ -11,7 +11,6 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.util.Pair
@@ -31,14 +30,15 @@ import com.bumptech.glide.Glide
 import com.google.ar.core.*
 import com.google.ar.core.ArCoreApk.InstallStatus
 import com.google.ar.core.exceptions.*
+import java.io.IOException
+import java.net.URL
+import java.util.Locale
+import javax.microedition.khronos.egl.EGLConfig
+import javax.microedition.khronos.opengles.GL10
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.net.URL
-import javax.microedition.khronos.egl.EGLConfig
-import javax.microedition.khronos.opengles.GL10
 
 class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
     companion object {
@@ -99,7 +99,6 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
     //
     private lateinit var buttonBack: Button
 
-
     override fun finish() {
         super.finish()
         overridePendingTransition(R.anim.no_change, R.anim.slide_down_out_easing)
@@ -109,9 +108,8 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         super.onCreate(savedInstanceState)
         if (!checkDeviceARSupport()) {
             AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                .setMessage(getString(R.string.label_device_does_not_support_ar)).setPositiveButton(
-                    android.R.string.yes
-                ) { _: DialogInterface?, _: Int ->
+                .setMessage(getString(R.string.label_device_does_not_support_ar))
+                .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
                     finish()
                 }.show()
             return
@@ -120,11 +118,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         setContentView(R.layout.ar_tracking_activity)
         supportActionBar?.hide()
         supportActionBar?.setBackgroundDrawable(
-            ColorDrawable(
-                ContextCompat.getColor(
-                    this, android.R.color.white
-                )
-            )
+            ColorDrawable(ContextCompat.getColor(this, android.R.color.white))
         )
         var flags: Int = window.decorView.systemUiVisibility // get current flag
         flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR // add LIGHT_STATUS_BAR to flag
@@ -134,7 +128,6 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         augmentedImageUrl = intent.getStringExtra(AR_AUGMENTED_IMAGE) ?: ""
         augmentedImageWidth = intent.getDoubleExtra(AR_AUGMENTED_IMAGE_WIDTH, 0.0)
         overlayImageUrl = intent.getStringExtra(AR_OVERLAY) ?: ""
-
 
         window.statusBarColor = Color.WHITE
         surfaceView = findViewById(R.id.surface_view)
@@ -203,55 +196,71 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                     }
                     InstallStatus.INSTALLED -> {}
                 }
-
-                // ARCore requires camera permissions to operate. If we did not yet obtain runtime
-                // permission on Android M and above, now is a good time to ask the user for it.
                 if (!CameraPermissionHelper.hasCameraPermission(this)) {
                     CameraPermissionHelper.requestCameraPermission(this)
                     return
                 }
                 session = Session(/* context = */ this)
             } catch (e: UnavailableArcoreNotInstalledException) {
-                message = "Please install ARCore"
+                // kr or en
+                if (Locale.getDefault().language == "ko") {
+                    message = "ARCore를 설치해주세요"
+                } else {
+                    message = "Please install ARCore"
+                }
                 exception = e
             } catch (e: UnavailableUserDeclinedInstallationException) {
-                message = "Please install ARCore"
+                if (Locale.getDefault().language == "ko") {
+                    message = "ARCore 설치를 거부하셨습니다"
+                } else {
+                    message = "Please install ARCore"
+                }
                 exception = e
             } catch (e: UnavailableApkTooOldException) {
-                message = "Please update ARCore"
+                if (Locale.getDefault().language == "ko") {
+                    message = "ARCore를 업데이트 해주세요"
+                } else {
+                    message = "Please update ARCore"
+                }
                 exception = e
             } catch (e: UnavailableSdkTooOldException) {
-                message = "Please update this app"
+                if (Locale.getDefault().language == "ko") {
+                    message = "앱을 업데이트 해주세요"
+                } else {
+                    message = "Please update this app"
+                }
                 exception = e
             } catch (e: Exception) {
-                message = "This device does not support AR"
+                if (Locale.getDefault().language == "ko") {
+                    message = "이 기기는 AR을 지원하지 않습니다"
+                } else {
+                    message = "This device does not support AR"
+                }
                 exception = e
             }
             if (message != null) {
-                Log.e(TAG, "Exception creating session", exception)
-                return
-            }
-            shouldConfigureSession = true
-        }
-
-        if (shouldConfigureSession) {
-            try {
-                CoroutineScope(Dispatchers.Main).launch {
-                    configureSession()
-                }
-            } catch (e: Exception) {
                 AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                    .setMessage(getString(R.string.label_insufficient_image_quality))
-                    .setPositiveButton(
-                        android.R.string.yes
-                    ) { _: DialogInterface?, _: Int ->
+                    .setMessage(message)
+                    .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
                         finish()
                     }.show()
                 return
             }
-            shouldConfigureSession = false
+            shouldConfigureSession = true
         }
-        // Note that order matters - see the note in onPause(), the reverse applies here.
+        // 세션 설정 가능 시 설정
+        if (shouldConfigureSession) {
+            try {
+                CoroutineScope(Dispatchers.Main).launch { configureSession() }
+            } catch (e: Exception) {
+                AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
+                    .setMessage(getString(R.string.label_insufficient_image_quality))
+                    .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
+                        finish()
+                    }.show()
+            }
+        }
+
         try {
             session!!.resume()
         } catch (e: CameraNotAvailableException) {
@@ -259,12 +268,10 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             return
         }
 
-        // 이미지 다운로드 이후 화면 그리기 시작
-        trackingOverlay.init(overlayImageUrl) {
-            surfaceView.onResume()
-        }
+        // 트래킹을 위한 이미지 다운로드 이후 화면 그리기 시작
+        trackingOverlay.init(overlayImageUrl) { surfaceView.onResume() }
 
-        // surfaceView.onResume()
+        // Display rotation helper 를 사용하여 디스플레이의 방향을 추적합니다.
         displayRotationHelper.onResume()
     }
 
@@ -289,10 +296,11 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         val config = Config(session)
         config.focusMode = Config.FocusMode.AUTO
         config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
-        withContext(Dispatchers.IO) {
-            setupAugmentedImageDatabase(config)
+        val shouldInitializeConfig =
+            withContext(Dispatchers.IO) { setupAugmentedImageDatabase(config) }
+        if (shouldInitializeConfig) {
+            session!!.configure(config)
         }
-        session!!.configure(config)
     }
 
     override fun onSurfaceCreated(gl: GL10, config: EGLConfig) {
@@ -361,9 +369,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         // Iterate to update augmentedImageMap, remove elements we cannot draw.
         for (augmentedImage in updatedAugmentedImages) {
             when (augmentedImage.trackingState) {
-                TrackingState.PAUSED -> {
-
-                }
+                TrackingState.PAUSED -> {}
                 TrackingState.TRACKING -> {
                     if (!augmentedImageMap.containsKey(augmentedImage.index)) {
                         val centerPoseAnchor =
@@ -372,8 +378,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                             Pair.create(augmentedImage, centerPoseAnchor)
                     }
                 }
-                TrackingState.STOPPED -> {
-                }
+                TrackingState.STOPPED -> {}
                 else -> {}
             }
         }
@@ -401,14 +406,12 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                 TrackingState.STOPPED -> {
                     buttonTracked.isEnabled = false
                 }
-                else -> {
-
-                }
+                else -> {}
             }
         }
     }
 
-    private suspend fun setupAugmentedImageDatabase(config: Config) {
+    private suspend fun setupAugmentedImageDatabase(config: Config): Boolean {
         // There are two ways to configure an AugmentedImageDatabase:
         // 1. Add Bitmap to DB directly
         // 2. Load a pre-built AugmentedImageDatabase
@@ -427,24 +430,37 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                 URL(augmentedImageUrl).openConnection().getInputStream(), null, options
             )
         })
+
+        bool shouldInitializeConfig = true
         if (bitmap == null) {
             AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                .setMessage(getString(R.string.label_insufficient_image_quality)).setPositiveButton(
-                    android.R.string.yes
-                ) { _: DialogInterface?, _: Int ->
+                .setMessage(getString(R.string.label_download_failure))
+                .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
                     finish()
                 }.show()
-            return
-        }
-        if (augmentedImageWidth > 0.0) {
-            augmentedImageDatabase.addImage("image_name", bitmap, augmentedImageWidth.toFloat())
-        } else {
-            augmentedImageDatabase.addImage("image_name", bitmap)
-        }
-        bitmap.recycle()
 
-        config.augmentedImageDatabase = augmentedImageDatabase
+            shouldInitializeConfig = false
+        }
+        try {
+            if (augmentedImageWidth > 0.0) {
+                augmentedImageDatabase.addImage("image_name", bitmap, augmentedImageWidth.toFloat())
+            } else {
+                augmentedImageDatabase.addImage("image_name", bitmap)
+            }
+            config.augmentedImageDatabase = augmentedImageDatabase
+        } catch (e: ImageInsufficientQualityException) {
+            AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
+                .setMessage(getString(R.string.label_insufficient_image_quality))
+                .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
+                    finish()
+                }.show()
+            shouldInitializeConfig = false
+        } finally {
+            bitmap.recycle()
+        }
     }
+
+    return shouldInitializeConfig
 }
 
 inline fun <T> retry(
