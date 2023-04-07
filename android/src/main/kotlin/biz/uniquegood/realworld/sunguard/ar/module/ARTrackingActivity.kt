@@ -420,7 +420,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             // ARGB_8888 is required by the image database.
             val options = BitmapFactory.Options().apply {
                 inPreferredConfig = Bitmap.Config.ARGB_8888
-                inPremultiplied = false
+                inPremultiplied = true
             }
             // Load in the bitmap
             BitmapFactory.decodeStream(
