@@ -3,12 +3,10 @@ package biz.uniquegood.realworld.sunguard.ar.module
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.os.Bundle
@@ -17,11 +15,13 @@ import android.util.Pair
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import biz.uniquegood.realworld.sunguard.ar.R
 import biz.uniquegood.realworld.sunguard.ar.RealWorldArPlugin
+import biz.uniquegood.realworld.sunguard.ar.common.extensions.showInsufficientImageQuality
+import biz.uniquegood.realworld.sunguard.ar.common.extensions.showMessage
+import biz.uniquegood.realworld.sunguard.ar.common.extensions.showNoInternet
+import biz.uniquegood.realworld.sunguard.ar.common.extensions.showNoResource
+import biz.uniquegood.realworld.sunguard.ar.common.extensions.showNoSupportAR
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.CameraPermissionHelper
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.DisplayRotationHelper
 import biz.uniquegood.realworld.sunguard.ar.common.helpers.TrackingStateHelper
@@ -30,6 +30,7 @@ import com.bumptech.glide.Glide
 import com.google.ar.core.*
 import com.google.ar.core.ArCoreApk.InstallStatus
 import com.google.ar.core.exceptions.*
+import com.tonyodev.fetch2core.isNetworkAvailable
 import java.io.IOException
 import java.net.URL
 import java.util.Locale
@@ -40,7 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
+class ARTrackingActivity : Activity(), GLSurfaceView.Renderer {
     companion object {
         val TAG: String = ARTrackingActivity::class.java.simpleName
         const val AR_GUIDE: String = "guideImage"
@@ -104,22 +105,18 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         overridePendingTransition(R.anim.no_change, R.anim.slide_down_out_easing)
     }
 
+    fun isArCheckAndInternetValidate(): Boolean {
+        return true
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (!checkDeviceARSupport()) {
-            AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                .setMessage(getString(R.string.label_device_does_not_support_ar))
-                .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
-                    finish()
-                }.show()
-            return
-        }
-
         setContentView(R.layout.ar_tracking_activity)
-        supportActionBar?.hide()
-        supportActionBar?.setBackgroundDrawable(
-            ColorDrawable(ContextCompat.getColor(this, android.R.color.white))
-        )
+//        supportActionBar?.hide()
+//        supportActionBar?.setBackgroundDrawable(
+//            ColorDrawable(ContextCompat.getColor(this, android.R.color.white))
+//        )
+
         var flags: Int = window.decorView.systemUiVisibility // get current flag
         flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR // add LIGHT_STATUS_BAR to flag
         window.decorView.systemUiVisibility = flags
@@ -164,9 +161,6 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         } else {
             Glide.with(this).load(guideImage).into(guideImageView)
         }
-
-        // 외부 이미지 다운로드
-
     }
 
     private fun checkDeviceARSupport(): Boolean {
@@ -185,8 +179,16 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         super.onResume()
         overridePendingTransition(R.anim.slide_up_in_easing, R.anim.slide_down_out_easing)
 
+        if (!checkDeviceARSupport()) {
+            showNoSupportAR()
+            return
+        }
+        if (!isNetworkAvailable()) {
+            showNoInternet()
+            return
+        }
+
         if (session == null) {
-            var exception: Exception? = null
             var message: String? = null
             try {
                 when (ArCoreApk.getInstance().requestInstall(this, !installRequested)) {
@@ -194,6 +196,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                         installRequested = true
                         return
                     }
+
                     InstallStatus.INSTALLED -> {}
                 }
                 if (!CameraPermissionHelper.hasCameraPermission(this)) {
@@ -202,76 +205,57 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                 }
                 session = Session(/* context = */ this)
             } catch (e: UnavailableArcoreNotInstalledException) {
-                // kr or en
-                if (Locale.getDefault().language == "ko") {
-                    message = "ARCore를 설치해주세요"
+                message = if (Locale.getDefault().language == "ko") {
+                    "ARCore를 설치해주세요"
                 } else {
-                    message = "Please install ARCore"
+                    "Please install ARCore"
                 }
-                exception = e
             } catch (e: UnavailableUserDeclinedInstallationException) {
-                if (Locale.getDefault().language == "ko") {
-                    message = "ARCore 설치를 거부하셨습니다"
+                message = if (Locale.getDefault().language == "ko") {
+                    "ARCore 설치를 거부하셨습니다"
                 } else {
-                    message = "Please install ARCore"
+                    "Please install ARCore"
                 }
-                exception = e
             } catch (e: UnavailableApkTooOldException) {
-                if (Locale.getDefault().language == "ko") {
-                    message = "ARCore를 업데이트 해주세요"
+                message = if (Locale.getDefault().language == "ko") {
+                    "ARCore를 업데이트 해주세요"
                 } else {
-                    message = "Please update ARCore"
+                    "Please update ARCore"
                 }
-                exception = e
             } catch (e: UnavailableSdkTooOldException) {
-                if (Locale.getDefault().language == "ko") {
-                    message = "앱을 업데이트 해주세요"
+                message = if (Locale.getDefault().language == "ko") {
+                    "앱을 업데이트 해주세요"
                 } else {
-                    message = "Please update this app"
+                    "Please update this app"
                 }
-                exception = e
             } catch (e: Exception) {
-                if (Locale.getDefault().language == "ko") {
-                    message = "이 기기는 AR을 지원하지 않습니다"
+                message = if (Locale.getDefault().language == "ko") {
+                    "이 기기는 AR을 지원하지 않습니다"
                 } else {
-                    message = "This device does not support AR"
+                    "This device does not support AR"
                 }
-                exception = e
             }
             if (message != null) {
-                AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                    .setMessage(message)
-                    .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
-                        finish()
-                    }.show()
+                showMessage(message)
                 return
             }
             shouldConfigureSession = true
         }
-        // 세션 설정 가능 시 설정
+
         if (shouldConfigureSession) {
             try {
-                CoroutineScope(Dispatchers.Main).launch { configureSession() }
-            } catch (e: Exception) {
-                AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                    .setMessage(getString(R.string.label_insufficient_image_quality))
-                    .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
-                        finish()
-                    }.show()
+                CoroutineScope(Dispatchers.Main).launch {
+                    setupConfigureSession()
+                    setupTrackingOverlay()
+                    try {
+                        session?.resume()
+                    } catch (e: CameraNotAvailableException) {
+                        session = null
+                    }
+                }
+            } catch (ignore: Exception) {
             }
         }
-
-        try {
-            session!!.resume()
-        } catch (e: CameraNotAvailableException) {
-            session = null
-            return
-        }
-
-        // 트래킹을 위한 이미지 다운로드 이후 화면 그리기 시작
-        trackingOverlay.init(overlayImageUrl) { surfaceView.onResume() }
-
-        // Display rotation helper 를 사용하여 디스플레이의 방향을 추적합니다.
         displayRotationHelper.onResume()
     }
 
@@ -292,7 +276,12 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         super.onDestroy()
     }
 
-    private suspend fun configureSession() {
+    /**
+     * ARCore Session 설정
+     * Augmented Image Database 설정
+     * Augmented Image Database 설정이 실패하면 ARCore를 사용할 수 없는 기기로 판단
+     */
+    private suspend fun setupConfigureSession() {
         val config = Config(session)
         config.focusMode = Config.FocusMode.AUTO
         config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
@@ -300,6 +289,17 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             withContext(Dispatchers.IO) { setupAugmentedImageDatabase(config) }
         if (shouldInitializeConfig) {
             session!!.configure(config)
+        }
+    }
+
+    /**
+     * Augmented Tracking Overlay Image 설정
+     */
+    private fun setupTrackingOverlay() {
+        try {
+            if (overlayImageUrl.isNotEmpty()) trackingOverlay.init(overlayImageUrl) { surfaceView.onResume() }
+        } catch (ignore: Exception) {
+
         }
     }
 
@@ -351,21 +351,16 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             val colorCorrectionRgba = FloatArray(4)
             frame.lightEstimate.getColorCorrection(colorCorrectionRgba, 0)
 
-            drawAugmentedImages(camera, frame, proj, view, colorCorrectionRgba)
+            drawAugmentedImages(frame, proj, view)
         } catch (t: Throwable) {
             Log.e(TAG, "Exception on OpenGL thread", t)
         }
     }
 
     private fun drawAugmentedImages(
-        camera: Camera,
-        frame: Frame,
-        proj: FloatArray,
-        view: FloatArray,
-        colorCorrectionRgba: FloatArray
+        frame: Frame, proj: FloatArray, view: FloatArray
     ) {
         val updatedAugmentedImages = frame.getUpdatedTrackables(AugmentedImage::class.java)
-
         // Iterate to update augmentedImageMap, remove elements we cannot draw.
         for (augmentedImage in updatedAugmentedImages) {
             when (augmentedImage.trackingState) {
@@ -378,6 +373,7 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                             Pair.create(augmentedImage, centerPoseAnchor)
                     }
                 }
+
                 TrackingState.STOPPED -> {}
                 else -> {}
             }
@@ -403,29 +399,23 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
                         guideImageView.visibility = View.GONE
                     }
                 }
+
                 TrackingState.STOPPED -> {
                     buttonTracked.isEnabled = false
                 }
+
                 else -> {}
             }
         }
     }
 
-    private suspend fun setupAugmentedImageDatabase(config: Config): Boolean {
-        // There are two ways to configure an AugmentedImageDatabase:
-        // 1. Add Bitmap to DB directly
-        // 2. Load a pre-built AugmentedImageDatabase
-        // Option 2) has
-        // * shorter setup time
-        // * doesn't require images to be packaged in apk.
+    private fun setupAugmentedImageDatabase(config: Config): Boolean {
         val augmentedImageDatabase = AugmentedImageDatabase(session)
-        val bitmap: Bitmap? = retry({ it is IOException }, 3, {
-            // ARGB_8888 is required by the image database.
+        val bitmap: Bitmap? = retry({ it is Exception }, 3, {
             val options = BitmapFactory.Options().apply {
                 inPreferredConfig = Bitmap.Config.ARGB_8888
                 inPremultiplied = true
             }
-            // Load in the bitmap
             BitmapFactory.decodeStream(
                 URL(augmentedImageUrl).openConnection().getInputStream(), null, options
             )
@@ -433,30 +423,24 @@ class ARTrackingActivity : AppCompatActivity(), GLSurfaceView.Renderer {
 
         var shouldInitializeConfig = true
         if (bitmap == null) {
-            AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                .setMessage(getString(R.string.label_download_failure))
-                .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
-                    finish()
-                }.show()
-
+            showNoResource()
             shouldInitializeConfig = false
-        }
-        try {
-            if (augmentedImageWidth > 0.0) {
-                augmentedImageDatabase.addImage("image_name", bitmap, augmentedImageWidth.toFloat())
-            } else {
-                augmentedImageDatabase.addImage("image_name", bitmap)
+        } else {
+            try {
+                if (augmentedImageWidth > 0.0) {
+                    augmentedImageDatabase.addImage(
+                        "image_name", bitmap, augmentedImageWidth.toFloat()
+                    )
+                } else {
+                    augmentedImageDatabase.addImage("image_name", bitmap)
+                }
+                config.augmentedImageDatabase = augmentedImageDatabase
+            } catch (e: ImageInsufficientQualityException) {
+                showInsufficientImageQuality()
+                shouldInitializeConfig = false
+            } finally {
+                bitmap.recycle()
             }
-            config.augmentedImageDatabase = augmentedImageDatabase
-        } catch (e: ImageInsufficientQualityException) {
-            AlertDialog.Builder(applicationContext).setTitle(R.string.alert_title)
-                .setMessage(getString(R.string.label_insufficient_image_quality))
-                .setPositiveButton(android.R.string.yes) { _: DialogInterface?, _: Int ->
-                    finish()
-                }.show()
-            shouldInitializeConfig = false
-        } finally {
-            bitmap?.recycle()
         }
         return shouldInitializeConfig
     }
