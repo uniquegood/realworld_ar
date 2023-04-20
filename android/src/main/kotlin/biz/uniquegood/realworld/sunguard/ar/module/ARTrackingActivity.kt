@@ -18,6 +18,7 @@ import android.widget.ImageView
 import biz.uniquegood.realworld.sunguard.ar.R
 import biz.uniquegood.realworld.sunguard.ar.RealWorldArPlugin
 import biz.uniquegood.realworld.sunguard.ar.common.extensions.showInsufficientImageQuality
+import biz.uniquegood.realworld.sunguard.ar.common.extensions.showInvalidImageFormat
 import biz.uniquegood.realworld.sunguard.ar.common.extensions.showMessage
 import biz.uniquegood.realworld.sunguard.ar.common.extensions.showNoInternet
 import biz.uniquegood.realworld.sunguard.ar.common.extensions.showNoResource
@@ -426,6 +427,11 @@ class ARTrackingActivity : Activity(), GLSurfaceView.Renderer {
             showNoResource()
             shouldInitializeConfig = false
         } else {
+            val formatted: Bitmap = if (bitmap.config != Bitmap.Config.ARGB_8888) {
+                bitmap.copy(Bitmap.Config.ARGB_8888, false)
+            } else {
+                bitmap
+            }
             try {
                 if (augmentedImageWidth > 0.0) {
                     augmentedImageDatabase.addImage(
@@ -435,11 +441,19 @@ class ARTrackingActivity : Activity(), GLSurfaceView.Renderer {
                     augmentedImageDatabase.addImage("image_name", bitmap)
                 }
                 config.augmentedImageDatabase = augmentedImageDatabase
+            } catch (e: IllegalArgumentException) {
+                showInvalidImageFormat()
+                shouldInitializeConfig = false
             } catch (e: ImageInsufficientQualityException) {
                 showInsufficientImageQuality()
                 shouldInitializeConfig = false
-            } finally {
-                bitmap.recycle()
+            }
+            try {
+                if (!bitmap.isRecycled)
+                    bitmap.recycle()
+                if (!formatted.isRecycled)
+                    formatted.recycle()
+            } catch (_: Exception) {
             }
         }
         return shouldInitializeConfig

@@ -23,6 +23,11 @@ fun Activity.showNoResource() {
     message.showAlertDefault(this)
 }
 
+fun Activity.showInvalidImageFormat() {
+    val message = getString(R.string.label_invalid_image_format)
+    message.showAlertDefault(this)
+}
+
 fun Activity.showInsufficientImageQuality() {
     val message = getString(R.string.label_insufficient_image_quality)
     message.showAlertDefault(this)
