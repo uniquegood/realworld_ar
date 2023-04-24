@@ -469,7 +469,9 @@ inline fun <T> retry(
         } catch (e: Exception) {
             if (predicate(e) && i < retries) {
                 continue
-            } else throw e
+            } else {
+                null
+            }
         }
     }
     return null
