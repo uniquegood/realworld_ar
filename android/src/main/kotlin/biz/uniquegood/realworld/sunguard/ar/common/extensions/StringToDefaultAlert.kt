@@ -38,7 +38,9 @@ fun Activity.showMessage(message: String) {
 }
 
 fun String.showAlertDefault(activity: Activity) {
+    if (activity.isFinishing) return
     CoroutineScope(Dispatchers.Main).launch {
+        if (activity.isFinishing) return@launch
         AlertDialog.Builder(activity)
             .setTitle(R.string.alert_title)
             .setMessage(this@showAlertDefault)
