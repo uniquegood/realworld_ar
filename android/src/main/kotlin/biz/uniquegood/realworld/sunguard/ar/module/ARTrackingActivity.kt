@@ -250,6 +250,8 @@ class ARTrackingActivity : Activity(), GLSurfaceView.Renderer {
                     setupTrackingOverlay()
                     try {
                         session?.resume()
+                        session?.pause()
+                        session?.resume()
                     } catch (e: CameraNotAvailableException) {
                         session = null
                     }
