@@ -289,7 +289,7 @@ class ARTrackingActivity : Activity(), GLSurfaceView.Renderer {
         val shouldInitializeConfig =
             withContext(Dispatchers.IO) { setupAugmentedImageDatabase(config) }
         if (shouldInitializeConfig) {
-            session!!.configure(config)
+            session?.configure(config)
         }
     }
 
