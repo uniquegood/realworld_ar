@@ -51,7 +51,8 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.fragment:fragment-ktx:1.6.0-alpha04'
     // downloader
-    implementation "androidx.tonyodev.fetch2:xfetch2:3.1.6"
+    implementation 'com.github.tonyofrancis.Fetch:xfetch2:3.1.6'
+
     // ARCore (Google Play Services for AR) library.
     implementation 'com.google.ar:core:1.36.0'
     // Obj - a simple Wavefront OBJ file loader
